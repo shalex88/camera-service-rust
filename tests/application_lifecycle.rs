@@ -44,7 +44,7 @@ async fn connect_with_retry(address: SocketAddr) -> Channel {
 }
 
 #[tokio::test]
-async fn application_serves_health_and_reflection_then_releases_its_listener() {
+async fn application_closes_health_watches_before_releasing_its_listener() {
     let file = NamedTempFile::new().expect("test must create configuration file");
     fs::write(file.path(), CONFIG).expect("test must write configuration");
     let config = Config::load(file.path()).expect("test configuration must load");
@@ -89,6 +89,20 @@ async fn application_serves_health_and_reflection_then_releases_its_listener() {
         .expect("health watch must report its initial state");
     assert_eq!(serving_update.status, ServingStatus::Serving as i32);
 
+    let mut overall_health_updates = health
+        .watch(Request::new(HealthCheckRequest {
+            service: String::new(),
+        }))
+        .await
+        .expect("overall health watch must start")
+        .into_inner();
+    let overall_serving_update = overall_health_updates
+        .message()
+        .await
+        .expect("overall health watch must remain valid")
+        .expect("overall health watch must report its initial state");
+    assert_eq!(overall_serving_update.status, ServingStatus::Serving as i32);
+
     let mut reflection = ServerReflectionClient::new(channel);
     let reflection_request = ServerReflectionRequest {
         host: String::new(),
@@ -121,11 +135,30 @@ async fn application_serves_health_and_reflection_then_releases_its_listener() {
         .expect("health watch must remain valid during shutdown")
         .expect("health watch must report a shutdown state");
     assert_eq!(shutdown_update.status, ServingStatus::NotServing as i32);
-    drop(health_updates);
-    application_task
+    let overall_shutdown_update = timeout(Duration::from_secs(1), overall_health_updates.message())
         .await
+        .expect("overall health watch must report shutdown promptly")
+        .expect("overall health watch must remain valid during shutdown")
+        .expect("overall health watch must report a shutdown state");
+    assert_eq!(
+        overall_shutdown_update.status,
+        ServingStatus::NotServing as i32
+    );
+    timeout(Duration::from_secs(1), application_task)
+        .await
+        .expect("application shutdown must not wait for the health client")
         .expect("application task must join")
         .expect("application must shut down cleanly");
+    let stream_end = timeout(Duration::from_secs(1), health_updates.message())
+        .await
+        .expect("health watch must close promptly")
+        .expect("health watch must remain valid while closing");
+    assert!(stream_end.is_none());
+    let overall_stream_end = timeout(Duration::from_secs(1), overall_health_updates.message())
+        .await
+        .expect("overall health watch must close promptly")
+        .expect("overall health watch must remain valid while closing");
+    assert!(overall_stream_end.is_none());
 
     TcpListener::bind(address)
         .await

@@ -47,8 +47,9 @@ impl CameraCore {
                 Ok(())
             }
             LifecycleState::Running => {
+                self.ports.lifecycle().close().await?;
                 *lifecycle = LifecycleState::Stopped;
-                self.ports.lifecycle().close().await
+                Ok(())
             }
             LifecycleState::Stopped => Ok(()),
         }
@@ -172,7 +173,7 @@ impl CameraCore {
 #[cfg(test)]
 mod tests {
     use std::sync::Arc;
-    use std::sync::atomic::{AtomicUsize, Ordering};
+    use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 
     use async_trait::async_trait;
     use tokio::sync::{Notify, RwLock};
@@ -186,6 +187,7 @@ mod tests {
     struct TestDevice {
         open_count: AtomicUsize,
         close_count: AtomicUsize,
+        fail_close_once: AtomicBool,
         zoom: RwLock<Zoom>,
         focus: RwLock<Focus>,
         block_zoom: bool,
@@ -198,6 +200,7 @@ mod tests {
             Self {
                 open_count: AtomicUsize::new(0),
                 close_count: AtomicUsize::new(0),
+                fail_close_once: AtomicBool::new(false),
                 zoom: RwLock::new(Zoom::MIN),
                 focus: RwLock::new(Focus::MIN),
                 block_zoom,
@@ -216,6 +219,11 @@ mod tests {
 
         async fn close(&self) -> Result<(), DomainError> {
             self.close_count.fetch_add(1, Ordering::SeqCst);
+            if self.fail_close_once.swap(false, Ordering::SeqCst) {
+                return Err(DomainError::Device(
+                    "transient test close failure".to_owned(),
+                ));
+            }
             Ok(())
         }
     }
@@ -339,6 +347,29 @@ mod tests {
             core.stabilization_enabled().await,
             Err(DomainError::UnsupportedCapability("stabilization"))
         );
+    }
+
+    #[tokio::test]
+    async fn failed_close_keeps_the_core_running_and_can_be_retried() {
+        let (core, device) = service_with_supported_ports(false);
+        core.start().await.expect("start must succeed");
+        device.fail_close_once.store(true, Ordering::SeqCst);
+
+        assert_eq!(
+            core.stop().await,
+            Err(DomainError::Device(
+                "transient test close failure".to_owned()
+            ))
+        );
+        assert_eq!(device.close_count.load(Ordering::SeqCst), 1);
+        assert_eq!(
+            core.zoom().await.expect("core must remain usable").value(),
+            0
+        );
+
+        core.stop().await.expect("close retry must succeed");
+        assert_eq!(device.close_count.load(Ordering::SeqCst), 2);
+        assert_eq!(core.zoom().await, Err(DomainError::NotRunning));
     }
 
     #[tokio::test]

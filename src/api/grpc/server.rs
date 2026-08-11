@@ -4,7 +4,9 @@ use thiserror::Error;
 use tokio::net::TcpListener;
 use tokio_stream::wrappers::TcpListenerStream;
 use tokio_util::sync::CancellationToken;
+use tonic::server::NamedService;
 use tonic::transport::Server;
+use tonic_health::ServingStatus;
 
 use crate::api::grpc::proto::camera_service_server::CameraServiceServer;
 use crate::api::grpc::{FILE_DESCRIPTOR_SET, GrpcCameraService};
@@ -47,12 +49,21 @@ impl GrpcServer {
             .build_v1()
             .map_err(|error| GrpcServerError::Reflection(error.to_string()))?;
 
-        let shutdown_reporter = health_reporter.clone();
+        let mut shutdown_reporter = health_reporter.clone();
         let shutdown = async move {
             cancellation.cancelled().await;
             shutdown_reporter
                 .set_not_serving::<CameraServiceServer<GrpcCameraService>>()
                 .await;
+            shutdown_reporter
+                .set_service_status("", ServingStatus::NotServing)
+                .await;
+            shutdown_reporter
+                .clear_service_status(
+                    <CameraServiceServer<GrpcCameraService> as NamedService>::NAME,
+                )
+                .await;
+            shutdown_reporter.clear_service_status("").await;
         };
 
         Server::builder()

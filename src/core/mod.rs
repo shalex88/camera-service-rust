@@ -1,6 +1,7 @@
 pub mod capabilities;
 pub mod device;
 pub mod error;
+pub mod service;
 
 pub use capabilities::{
     AutoFocusCapability, Capability, DeviceInfo, Focus, FocusCapability, InfoCapability,
@@ -8,6 +9,7 @@ pub use capabilities::{
 };
 pub use device::{DeviceLifecycle, DevicePorts, DevicePortsBuilder};
 pub use error::DomainError;
+pub use service::CameraCore;
 
 #[cfg(test)]
 mod tests {

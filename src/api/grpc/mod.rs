@@ -1,3 +1,8 @@
+mod service;
+mod status;
+
+pub use service::GrpcCameraService;
+
 pub mod proto {
     tonic::include_proto!("camera.v1");
 }

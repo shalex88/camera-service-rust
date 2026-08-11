@@ -1,0 +1,92 @@
+syntax = "proto3";
+
+package camera.v1;
+
+import "google/protobuf/empty.proto";
+
+service CameraService {
+  // Zoom operations
+  rpc SetZoom (SetZoomRequest) returns (SetZoomResponse) {}
+  rpc GetZoom (google.protobuf.Empty) returns (GetZoomResponse) {}
+  rpc GoToMinZoom (google.protobuf.Empty) returns (GoToMinZoomResponse) {}
+  rpc GoToMaxZoom (google.protobuf.Empty) returns (GoToMaxZoomResponse) {}
+
+  // Focus operations
+  rpc SetFocus (SetFocusRequest) returns (SetFocusResponse) {}
+  rpc GetFocus (google.protobuf.Empty) returns (GetFocusResponse) {}
+  rpc SetAutoFocus (SetAutoFocusRequest) returns (google.protobuf.Empty) {}
+  rpc GetAutoFocus (google.protobuf.Empty) returns (GetAutoFocusResponse) {}
+
+  // Device info
+  rpc GetInfo (google.protobuf.Empty) returns (GetInfoResponse) {}
+
+  // Capabilities
+  rpc GetCapabilities (google.protobuf.Empty) returns (GetCapabilitiesResponse) {}
+
+  // Advanced operations
+  rpc SetStabilization (SetStabilizationRequest) returns (google.protobuf.Empty) {}
+  rpc GetStabilization (google.protobuf.Empty) returns (GetStabilizationResponse) {}
+}
+
+// Zoom operations
+message SetZoomRequest {
+  uint32 zoom = 1; // normalized [0 - 100]
+}
+
+message SetZoomResponse {}
+
+message GetZoomResponse {
+  uint32 zoom = 1; // normalized [0 - 100]
+}
+
+message GoToMinZoomResponse {}
+
+message GoToMaxZoomResponse {}
+
+// Focus operations
+message SetFocusRequest {
+  uint32 focus = 1; // normalized [0 - 100]
+}
+
+message SetFocusResponse {}
+
+message GetFocusResponse {
+  uint32 focus = 1; // normalized [0 - 100]
+}
+
+message SetAutoFocusRequest {
+  bool enable = 1;
+}
+
+message GetAutoFocusResponse {
+  bool enable = 1;
+}
+
+// Device info
+message GetInfoResponse {
+  string info = 1;
+}
+
+// Capabilities
+message GetCapabilitiesResponse {
+  repeated Capability capabilities = 1;
+}
+
+enum Capability {
+  CAPABILITY_UNSPECIFIED = 0;
+  CAPABILITY_ZOOM = 1;
+  CAPABILITY_FOCUS = 2;
+  CAPABILITY_AUTO_FOCUS = 3;
+  CAPABILITY_INFO = 4;
+  CAPABILITY_STABILIZATION = 5;
+}
+
+// Advanced operations
+message SetStabilizationRequest {
+  bool enable = 1;
+}
+
+message GetStabilizationResponse {
+  bool enable = 1;
+}
+

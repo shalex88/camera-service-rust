@@ -1,0 +1,10 @@
+app:
+  name: camera-controller-rust
+  log_level: info
+  api:
+    api_type: grpc
+    port: 50051
+  core:
+    device_type: camera
+  infrastructure:
+    device_name: fake_simple

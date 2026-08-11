@@ -1,6 +1,8 @@
+mod server;
 mod service;
 mod status;
 
+pub use server::{GrpcServer, GrpcServerError};
 pub use service::GrpcCameraService;
 
 pub mod proto {

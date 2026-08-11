@@ -1,3 +1,4 @@
+/// A failure produced by core validation, lifecycle, or a device port.
 #[derive(Debug, Clone, PartialEq, Eq, thiserror::Error)]
 pub enum DomainError {
     #[error("invalid {field}: {value}; expected {expected}")]

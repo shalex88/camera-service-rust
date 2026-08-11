@@ -4,6 +4,7 @@ use std::path::{Path, PathBuf};
 use serde::Deserialize;
 use thiserror::Error;
 
+/// Validated service configuration loaded from YAML.
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct Config {
@@ -39,21 +40,27 @@ struct InfrastructureConfig {
     device_name: DeviceName,
 }
 
+/// API adapters accepted by the current configuration contract.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum ApiType {
+    /// The Tonic gRPC adapter.
     Grpc,
 }
 
+/// Core device categories accepted by the current configuration contract.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum DeviceType {
+    /// A camera device with capability-specific ports.
     Camera,
 }
 
+/// Concrete infrastructure adapters accepted by the current configuration contract.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum DeviceName {
+    /// The in-memory fake that implements zoom, focus, and information.
     FakeSimple,
 }
 
@@ -79,6 +86,7 @@ impl LogLevel {
     }
 }
 
+/// A configuration loading or validation failure with field context.
 #[derive(Debug, Error)]
 pub enum ConfigError {
     #[error("failed to read configuration '{path}': {source}")]
@@ -97,6 +105,7 @@ pub enum ConfigError {
 }
 
 impl Config {
+    /// Loads, deserializes, and validates YAML from a filesystem path.
     pub fn load(path: impl AsRef<Path>) -> Result<Self, ConfigError> {
         let path = path.as_ref();
         let contents = fs::read_to_string(path).map_err(|source| ConfigError::Read {
@@ -131,26 +140,32 @@ impl Config {
         Ok(())
     }
 
+    /// Returns the configured application name.
     pub fn app_name(&self) -> &str {
         &self.app.name
     }
 
+    /// Returns the configured tracing level.
     pub const fn log_level(&self) -> &'static str {
         self.app.log_level.as_str()
     }
 
+    /// Returns the selected API adapter.
     pub const fn api_type(&self) -> ApiType {
         self.app.api.api_type
     }
 
+    /// Returns the configured loopback port.
     pub const fn api_port(&self) -> u16 {
         self.app.api.port
     }
 
+    /// Returns the selected core device category.
     pub const fn device_type(&self) -> DeviceType {
         self.app.core.device_type
     }
 
+    /// Returns the selected infrastructure adapter.
     pub const fn device_name(&self) -> DeviceName {
         self.app.infrastructure.device_name
     }
@@ -244,5 +259,59 @@ mod tests {
                 .to_string()
                 .contains("/path/that/does/not/exist/config.yaml")
         );
+    }
+
+    #[test]
+    fn rejects_unsupported_typed_values_with_their_paths() {
+        let cases = [
+            ("api_type: grpc", "api_type: rest", "app.api.api_type"),
+            (
+                "device_type: camera",
+                "device_type: sensor",
+                "app.core.device_type",
+            ),
+            (
+                "device_name: fake_simple",
+                "device_name: mwir",
+                "app.infrastructure.device_name",
+            ),
+            ("log_level: info", "log_level: verbose", "app.log_level"),
+        ];
+
+        for (valid, invalid, expected_path) in cases {
+            let yaml = VALID_YAML.replace(valid, invalid);
+            let error = load_yaml(&yaml).expect_err("unsupported enum value must fail");
+
+            assert!(
+                error.to_string().contains(expected_path),
+                "error did not contain {expected_path}: {error}"
+            );
+        }
+    }
+
+    #[test]
+    fn rejects_a_port_above_the_u16_range_with_its_path() {
+        let yaml = VALID_YAML.replace("50051", "65536");
+
+        let error = load_yaml(&yaml).expect_err("out-of-range port must fail");
+
+        assert!(error.to_string().contains("app.api.port"));
+    }
+
+    #[test]
+    fn rejects_malformed_yaml() {
+        let error = load_yaml("app: [").expect_err("malformed YAML must fail");
+
+        assert!(error.to_string().contains("invalid configuration"));
+    }
+
+    #[test]
+    fn accepts_every_documented_log_level() {
+        for level in ["trace", "debug", "info", "warn", "error"] {
+            let yaml = VALID_YAML.replace("log_level: info", &format!("log_level: {level}"));
+            let config = load_yaml(&yaml).expect("documented log level must load");
+
+            assert_eq!(config.log_level(), level);
+        }
     }
 }

@@ -4,6 +4,7 @@ use crate::config::DeviceName;
 use crate::core::{DeviceLifecycle, DevicePorts, FocusCapability, InfoCapability, ZoomCapability};
 use crate::infrastructure::devices::SimpleFakeCamera;
 
+/// Constructs the configured device and registers only its implemented ports.
 pub fn build_device(device_name: DeviceName) -> DevicePorts {
     match device_name {
         DeviceName::FakeSimple => {

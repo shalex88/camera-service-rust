@@ -6,7 +6,7 @@ use camera_controller_rust::app::Application;
 use camera_controller_rust::config::Config;
 use tempfile::NamedTempFile;
 use tokio::net::TcpListener;
-use tokio::time::sleep;
+use tokio::time::{sleep, timeout};
 use tokio_stream::StreamExt;
 use tokio_util::sync::CancellationToken;
 use tonic::Request;
@@ -75,6 +75,20 @@ async fn application_serves_health_and_reflection_then_releases_its_listener() {
         .into_inner();
     assert_eq!(health_response.status, ServingStatus::Serving as i32);
 
+    let mut health_updates = health
+        .watch(Request::new(HealthCheckRequest {
+            service: "camera.v1.CameraService".to_owned(),
+        }))
+        .await
+        .expect("health watch must start")
+        .into_inner();
+    let serving_update = health_updates
+        .message()
+        .await
+        .expect("health watch must remain valid")
+        .expect("health watch must report its initial state");
+    assert_eq!(serving_update.status, ServingStatus::Serving as i32);
+
     let mut reflection = ServerReflectionClient::new(channel);
     let reflection_request = ServerReflectionRequest {
         host: String::new(),
@@ -101,6 +115,13 @@ async fn application_serves_health_and_reflection_then_releases_its_listener() {
     );
 
     cancellation.cancel();
+    let shutdown_update = timeout(Duration::from_secs(1), health_updates.message())
+        .await
+        .expect("health watch must report shutdown promptly")
+        .expect("health watch must remain valid during shutdown")
+        .expect("health watch must report a shutdown state");
+    assert_eq!(shutdown_update.status, ServingStatus::NotServing as i32);
+    drop(health_updates);
     application_task
         .await
         .expect("application task must join")

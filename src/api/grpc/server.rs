@@ -10,6 +10,7 @@ use crate::api::grpc::proto::camera_service_server::CameraServiceServer;
 use crate::api::grpc::{FILE_DESCRIPTOR_SET, GrpcCameraService};
 use crate::core::CameraCore;
 
+/// A failure while constructing or serving the gRPC runtime.
 #[derive(Debug, Error)]
 pub enum GrpcServerError {
     #[error("failed to build gRPC reflection service: {0}")]
@@ -18,15 +19,18 @@ pub enum GrpcServerError {
     Transport(#[from] tonic::transport::Error),
 }
 
+/// A loopback gRPC runtime exposing camera, health, and reflection services.
 pub struct GrpcServer {
     core: Arc<CameraCore>,
 }
 
 impl GrpcServer {
+    /// Creates a server around a camera core.
     pub fn new(core: Arc<CameraCore>) -> Self {
         Self { core }
     }
 
+    /// Serves an already-bound listener until cancellation and graceful drain.
     pub async fn serve(
         self,
         listener: TcpListener,

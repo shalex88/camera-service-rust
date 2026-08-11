@@ -12,12 +12,14 @@ use crate::api::grpc::proto::{
 };
 use crate::core::{CameraCore, Capability, Focus, Zoom};
 
+/// The gRPC transport adapter for camera core use cases.
 #[derive(Clone)]
 pub struct GrpcCameraService {
     core: Arc<CameraCore>,
 }
 
 impl GrpcCameraService {
+    /// Creates a transport adapter around a running camera core.
     pub fn new(core: Arc<CameraCore>) -> Self {
         Self { core }
     }

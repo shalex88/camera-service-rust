@@ -9,12 +9,14 @@ enum LifecycleState {
     Stopped,
 }
 
+/// Coordinates device lifecycle and capability use cases for API adapters.
 pub struct CameraCore {
     ports: DevicePorts,
     lifecycle: RwLock<LifecycleState>,
 }
 
 impl CameraCore {
+    /// Creates a core around one device-port aggregate.
     pub fn new(ports: DevicePorts) -> Self {
         Self {
             ports,
@@ -22,6 +24,7 @@ impl CameraCore {
         }
     }
 
+    /// Opens the device once and moves the core into its running state.
     pub async fn start(&self) -> Result<(), DomainError> {
         let mut lifecycle = self.lifecycle.write().await;
         match *lifecycle {
@@ -35,6 +38,7 @@ impl CameraCore {
         }
     }
 
+    /// Drains active operations, closes the device once, and stops the core.
     pub async fn stop(&self) -> Result<(), DomainError> {
         let mut lifecycle = self.lifecycle.write().await;
         match *lifecycle {
@@ -58,6 +62,7 @@ impl CameraCore {
         Ok(lifecycle)
     }
 
+    /// Changes zoom through the registered zoom port.
     pub async fn set_zoom(&self, zoom: Zoom) -> Result<(), DomainError> {
         let _lifecycle = self.require_running().await?;
         let capability = self
@@ -67,6 +72,7 @@ impl CameraCore {
         capability.set_zoom(zoom).await
     }
 
+    /// Reads zoom through the registered zoom port.
     pub async fn zoom(&self) -> Result<Zoom, DomainError> {
         let _lifecycle = self.require_running().await?;
         let capability = self
@@ -76,14 +82,17 @@ impl CameraCore {
         capability.zoom().await
     }
 
+    /// Changes zoom to its normalized minimum.
     pub async fn go_to_min_zoom(&self) -> Result<(), DomainError> {
         self.set_zoom(Zoom::MIN).await
     }
 
+    /// Changes zoom to its normalized maximum.
     pub async fn go_to_max_zoom(&self) -> Result<(), DomainError> {
         self.set_zoom(Zoom::MAX).await
     }
 
+    /// Changes focus through the registered focus port.
     pub async fn set_focus(&self, focus: Focus) -> Result<(), DomainError> {
         let _lifecycle = self.require_running().await?;
         let capability = self
@@ -93,6 +102,7 @@ impl CameraCore {
         capability.set_focus(focus).await
     }
 
+    /// Reads focus through the registered focus port.
     pub async fn focus(&self) -> Result<Focus, DomainError> {
         let _lifecycle = self.require_running().await?;
         let capability = self
@@ -102,6 +112,7 @@ impl CameraCore {
         capability.focus().await
     }
 
+    /// Reads information through the registered information port.
     pub async fn info(&self) -> Result<DeviceInfo, DomainError> {
         let _lifecycle = self.require_running().await?;
         let capability = self
@@ -111,6 +122,7 @@ impl CameraCore {
         capability.info().await
     }
 
+    /// Changes autofocus through the registered autofocus port.
     pub async fn set_auto_focus(&self, enabled: bool) -> Result<(), DomainError> {
         let _lifecycle = self.require_running().await?;
         let capability = self
@@ -120,6 +132,7 @@ impl CameraCore {
         capability.set_auto_focus(enabled).await
     }
 
+    /// Reads autofocus state through the registered autofocus port.
     pub async fn auto_focus_enabled(&self) -> Result<bool, DomainError> {
         let _lifecycle = self.require_running().await?;
         let capability = self
@@ -129,6 +142,7 @@ impl CameraCore {
         capability.auto_focus_enabled().await
     }
 
+    /// Changes stabilization through the registered stabilization port.
     pub async fn set_stabilization(&self, enabled: bool) -> Result<(), DomainError> {
         let _lifecycle = self.require_running().await?;
         let capability = self
@@ -138,6 +152,7 @@ impl CameraCore {
         capability.set_stabilization(enabled).await
     }
 
+    /// Reads stabilization state through the registered stabilization port.
     pub async fn stabilization_enabled(&self) -> Result<bool, DomainError> {
         let _lifecycle = self.require_running().await?;
         let capability = self
@@ -147,6 +162,7 @@ impl CameraCore {
         capability.stabilization_enabled().await
     }
 
+    /// Returns the capabilities derived from the registered ports.
     pub async fn capabilities(&self) -> Result<Vec<Capability>, DomainError> {
         let _lifecycle = self.require_running().await?;
         Ok(self.ports.capabilities())

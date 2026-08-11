@@ -23,12 +23,14 @@ impl Default for FakeState {
     }
 }
 
+/// A concurrency-safe, per-instance camera adapter backed only by memory.
 #[derive(Debug, Default)]
 pub struct SimpleFakeCamera {
     state: RwLock<FakeState>,
 }
 
 impl SimpleFakeCamera {
+    /// Creates a closed fake camera with minimum zoom and focus.
     pub fn new() -> Self {
         Self::default()
     }

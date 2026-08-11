@@ -33,6 +33,7 @@ async fn run() -> Result<()> {
         .with_context(|| format!("failed to load configuration '{}'", cli.config.display()))?;
     let application = Application::from_config(config);
     application.initialize_tracing()?;
+    tracing::info!(config = %cli.config.display(), "configuration loaded");
 
     let cancellation = CancellationToken::new();
     let signal_cancellation = cancellation.clone();
